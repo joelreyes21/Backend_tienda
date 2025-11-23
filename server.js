@@ -39,13 +39,14 @@ app.use('/uploads', express.static(uploadDir));
 
 // Pool de MySQL
 const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'appuser',
-  password: 'messi10!',
-  database: 'tienda',
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10
 });
+
 
 // ---------- Helper: crear token ----------
 function createToken(user) {
@@ -480,5 +481,6 @@ app.delete("/api/contacto/:id", async (req, res) => {
 // ----------------------------------------------------------
 
 app.listen(PORT, () => {
-  console.log(`✅ Server escuchando en http://localhost:${PORT}`);
+  console.log(`✅ Server escuchando en puerto ${PORT}`);
 });
+
