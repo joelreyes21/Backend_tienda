@@ -34,10 +34,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// servir las imágenes de productos
+// Servir imágenes
 app.use('/uploads', express.static(uploadDir));
 
-// Pool de MySQL
+// Pool MySQL (Render → Hostinger)
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -46,7 +46,6 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10
 });
-
 
 // ---------- Helper: crear token ----------
 function createToken(user) {
@@ -82,7 +81,6 @@ app.get('/api/test-db', async (req, res) => {
     const [rows] = await pool.query('SELECT 1 + 1 AS resultado');
     res.json({ ok: true, resultado: rows[0].resultado });
   } catch (err) {
-    console.error('Error en test-db:', err);
     res.status(500).json({
       ok: false,
       error: err.message,
@@ -126,7 +124,6 @@ app.post('/api/register', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error en /api/register:', err);
     res.status(500).json({ ok: false, error: 'Error en el servidor' });
   }
 });
@@ -171,29 +168,6 @@ app.post('/api/login', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error en /api/login:', err);
-    res.status(500).json({ ok: false, error: 'Error en el servidor' });
-  }
-});
-
-// ---------- AUTH: PROFILE ----------
-app.get('/api/profile', authMiddleware, async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT u.id, u.nombre, u.apellido, u.email, r.nombre AS role, u.created_at
-       FROM users u
-       LEFT JOIN roles r ON r.id = u.role_id
-       WHERE u.id = ?`,
-      [req.user.id]
-    );
-
-    if (rows.length === 0)
-      return res.status(404).json({ ok: false, error: 'Usuario no encontrado' });
-
-    res.json({ ok: true, user: rows[0] });
-
-  } catch (err) {
-    console.error('Error en /api/profile:', err);
     res.status(500).json({ ok: false, error: 'Error en el servidor' });
   }
 });
@@ -202,7 +176,7 @@ app.get('/api/profile', authMiddleware, async (req, res) => {
 // ------------------------ PRODUCTS ------------------------
 // ----------------------------------------------------------
 
-// ---------- GET productos ----------
+// GET productos
 app.get('/api/products', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -226,12 +200,11 @@ app.get('/api/products', async (req, res) => {
     res.json({ ok: true, products: rows });
 
   } catch (err) {
-    console.error('Error en /api/products:', err);
     res.status(500).json({ ok: false, error: 'Error en el servidor' });
   }
 });
 
-// ---------- GET producto por ID (para detalle.html y editar_producto.html) ----------
+// GET producto por ID
 app.get('/api/products/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -245,12 +218,11 @@ app.get('/api/products/:id', async (req, res) => {
     res.json({ ok: true, product: rows[0] });
 
   } catch (err) {
-    console.error("Error en GET /api/products/:id", err);
-    res.status(500).json({ ok: false, error: "Error en el servidor" });
+    res.status(500).json({ ok: false, error: 'Error en el servidor' });
   }
 });
 
-// ---------- POST crear producto ----------
+// POST crear producto
 app.post('/api/products', upload.single('imagen'), async (req, res) => {
   try {
     const {
@@ -271,9 +243,7 @@ app.post('/api/products', upload.single('imagen'), async (req, res) => {
       });
     }
 
-    const imagenFinal = req.file
-      ? `/uploads/${req.file.filename}`
-      : null;
+    const imagenFinal = req.file ? `/uploads/${req.file.filename}` : null;
 
     const [result] = await pool.query(
       `INSERT INTO products
@@ -303,12 +273,11 @@ app.post('/api/products', upload.single('imagen'), async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error creando producto:', err);
     res.status(500).json({ ok: false, error: 'Error en el servidor' });
   }
 });
 
-// ---------- PUT actualizar producto ----------
+// PUT actualizar producto
 app.put('/api/products/:id', upload.single("imagen"), async (req, res) => {
   try {
     const {
@@ -360,12 +329,11 @@ app.put('/api/products/:id', upload.single("imagen"), async (req, res) => {
     res.json({ ok: true, message: "Producto actualizado" });
 
   } catch (err) {
-    console.error("Error en PUT /api/products/:id", err);
     res.status(500).json({ ok: false, error: "Error en el servidor" });
   }
 });
 
-// ---------- DELETE producto ----------
+// DELETE producto
 app.delete('/api/products/:id', async (req, res) => {
   try {
     await pool.query(
@@ -376,12 +344,11 @@ app.delete('/api/products/:id', async (req, res) => {
     res.json({ ok: true, message: "Producto eliminado" });
 
   } catch (err) {
-    console.error("Error en DELETE /api/products/:id", err);
     res.status(500).json({ ok: false, error: "Error en el servidor" });
   }
 });
 
-// ---------- GET: Obtener todos los usuarios ----------
+// ---------- USUARIOS ----------
 app.get('/api/usuarios', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -400,7 +367,6 @@ app.get('/api/usuarios', async (req, res) => {
     res.json(rows);
 
   } catch (err) {
-    console.error("Error en GET /api/usuarios:", err);
     res.status(500).json({ ok: false, error: "Error obteniendo usuarios" });
   }
 });
@@ -433,6 +399,7 @@ app.put("/api/usuarios/:id/rol", async (req, res) => {
   }
 });
 
+// ---------- CONTACTO ----------
 app.post("/api/contacto", async (req, res) => {
   try {
     const { nombre, email, mensaje } = req.body;
@@ -446,12 +413,10 @@ app.post("/api/contacto", async (req, res) => {
     res.json({ ok: true });
 
   } catch (err) {
-    console.error("Error en /api/contacto:", err);
     res.status(500).json({ ok: false });
   }
 });
 
-// Obtener todos los mensajes de contacto
 app.get("/api/contacto", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -463,24 +428,20 @@ app.get("/api/contacto", async (req, res) => {
     res.json({ ok: true, mensajes: rows });
 
   } catch (err) {
-    console.error("Error en GET /api/contacto:", err);
     res.status(500).json({ ok: false, error: "Error al obtener mensajes" });
   }
 });
+
 app.delete("/api/contacto/:id", async (req, res) => {
   try {
     await pool.query(`DELETE FROM contacto WHERE id = ?`, [req.params.id]);
     res.json({ ok: true });
   } catch (err) {
-    console.error("Error eliminando mensaje:", err);
     res.status(500).json({ ok: false });
   }
 });
 
-
 // ----------------------------------------------------------
-
 app.listen(PORT, () => {
   console.log(`✅ Server escuchando en puerto ${PORT}`);
 });
-
