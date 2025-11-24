@@ -333,6 +333,7 @@ app.put('/api/products/:id', upload.single("imagen"), async (req, res) => {
   }
 });
 
+
 // DELETE producto
 app.delete('/api/products/:id', async (req, res) => {
   try {
@@ -347,37 +348,28 @@ app.delete('/api/products/:id', async (req, res) => {
     res.status(500).json({ ok: false, error: "Error en el servidor" });
   }
 });
-
-// ---------- USUARIOS ----------
-// ---------- PERFIL DE USUARIO ----------
-app.get("/api/users/:id", authMiddleware, async (req, res) => {
+// ---------- LISTAR USUARIOS (ADMIN) ----------
+app.get("/api/usuarios", async (req, res) => {
   try {
-    const userId = req.params.id;
+    const [rows] = await pool.query(`
+      SELECT 
+        u.id,
+        u.nombre,
+        u.apellido,
+        u.email,
+        r.nombre AS rol
+      FROM users u
+      LEFT JOIN roles r ON r.id = u.role_id
+      ORDER BY u.id DESC
+    `);
 
-    const [rows] = await pool.query(
-      `SELECT 
-          u.id,
-          u.nombre,
-          u.apellido,
-          u.email,
-          r.nombre AS role
-       FROM users u
-       LEFT JOIN roles r ON r.id = u.role_id
-       WHERE u.id = ?`,
-      [userId]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
-    }
-
-    res.json({ ok: true, user: rows[0] });
-
+    res.json(rows); // la tabla espera un array directo
   } catch (err) {
-    console.error("Error /api/users/:id", err);
-    res.status(500).json({ ok: false, error: "Error interno del servidor" });
+    console.error("Error GET /api/usuarios", err);
+    res.status(500).json({ error: "Error cargando usuarios" });
   }
 });
+
 
 
 app.delete("/api/usuarios/:id", async (req, res) => {
