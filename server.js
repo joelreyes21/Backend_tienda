@@ -528,6 +528,50 @@ app.post("/api/direcciones", async (req, res) => {
     }
 });
 
+// 🔥 EDITAR DIRECCIÓN
+app.put("/api/direcciones/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { departamento, ciudad, direccion } = req.body;
+
+        if (!departamento || !ciudad || !direccion) {
+            return res.status(400).json({ ok: false, error: "Datos incompletos" });
+        }
+
+        await pool.query(
+            `UPDATE direcciones
+             SET departamento = ?, ciudad = ?, direccion = ?
+             WHERE id = ?`,
+            [departamento, ciudad, direccion, id]
+        );
+
+        res.json({ ok: true, message: "Dirección actualizada" });
+
+    } catch (err) {
+        console.error("Error PUT /direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error al actualizar dirección" });
+    }
+});
+
+
+// 🔥 ELIMINAR DIRECCIÓN
+app.delete("/api/direcciones/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        await pool.query(`DELETE FROM direcciones WHERE id = ?`, [id]);
+
+        res.json({ ok: true, message: "Dirección eliminada" });
+
+    } catch (err) {
+        console.error("Error DELETE /direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error al eliminar dirección" });
+    }
+});
+
+
+
+
 
 // ----------------------------------------------------------
 app.listen(PORT, () => {
