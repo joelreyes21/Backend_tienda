@@ -485,6 +485,53 @@ app.post("/api/direcciones", async (req, res) => {
     }
 });
 
+// ================================
+//        DIRECCIONES (CRUD)
+// ================================
+app.get("/api/direcciones/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const [rows] = await pool.query(
+            `SELECT id, departamento, ciudad, direccion, created_at
+             FROM direcciones
+             WHERE user_id = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        res.json({ ok: true, direcciones: rows });
+
+    } catch (err) {
+        console.error("Error GET /direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error al obtener direcciones" });
+    }
+});
+
+
+app.post("/api/direcciones", async (req, res) => {
+    try {
+        const { userId, departamento, ciudad, direccion } = req.body;
+
+        if (!userId || !departamento || !ciudad || !direccion) {
+            return res.status(400).json({ ok: false, error: "Datos incompletos" });
+        }
+
+        await pool.query(
+            `INSERT INTO direcciones (user_id, departamento, ciudad, direccion)
+             VALUES (?, ?, ?, ?)`,
+            [userId, departamento, ciudad, direccion]
+        );
+
+        res.json({ ok: true });
+
+    } catch (err) {
+        console.error("Error POST /direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error al guardar dirección" });
+    }
+});
+
+
 // ----------------------------------------------------------
 app.listen(PORT, () => {
   console.log(`✅ Server escuchando en puerto ${PORT}`);
