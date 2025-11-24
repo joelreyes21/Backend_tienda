@@ -12,7 +12,7 @@ const multer = require('multer');
 const app = express();
 
 // Config
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'secreto_super_seguro';
 
 // Middlewares
@@ -73,7 +73,7 @@ function authMiddleware(req, res, next) {
 
 // ---------- Rutas básicas ----------
 app.get('/api/ping', (req, res) => {
-  res.json({ ok: true, message: 'Backend vivo 🔥' });
+  res.json({ ok: true, message: 'Backend vivo' });
 });
 
 app.get('/api/test-db', async (req, res) => {
@@ -349,27 +349,36 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // ---------- USUARIOS ----------
-app.get('/api/usuarios', async (req, res) => {
+// ---------- PERFIL DE USUARIO ----------
+app.get("/api/users/:id", authMiddleware, async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        u.id,
-        u.nombre,
-        u.apellido,
-        u.email,
-        r.nombre AS rol,
-        u.created_at
-      FROM users u
-      LEFT JOIN roles r ON r.id = u.role_id
-      ORDER BY u.id DESC
-    `);
+    const userId = req.params.id;
 
-    res.json(rows);
+    const [rows] = await pool.query(
+      `SELECT 
+          u.id,
+          u.nombre,
+          u.apellido,
+          u.email,
+          r.nombre AS role
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ?`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    }
+
+    res.json({ ok: true, user: rows[0] });
 
   } catch (err) {
-    res.status(500).json({ ok: false, error: "Error obteniendo usuarios" });
+    console.error("Error /api/users/:id", err);
+    res.status(500).json({ ok: false, error: "Error interno del servidor" });
   }
 });
+
 
 app.delete("/api/usuarios/:id", async (req, res) => {
   try {
