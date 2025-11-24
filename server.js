@@ -442,6 +442,49 @@ app.delete("/api/contacto/:id", async (req, res) => {
   }
 });
 
+app.get("/api/direcciones/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const [rows] = await pool.query(
+            `SELECT id, departamento, ciudad, direccion, created_at
+             FROM direcciones
+             WHERE user_id = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        res.json({ ok: true, direcciones: rows });
+
+    } catch (err) {
+        console.error("Error GET /api/direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error interno del servidor" });
+    }
+});
+
+// Crear nueva dirección
+app.post("/api/direcciones", async (req, res) => {
+    try {
+        const { user_id, departamento, ciudad, direccion } = req.body;
+
+        if (!user_id || !departamento || !ciudad || !Direccion) {
+            return res.status(400).json({ ok: false, error: "Faltan datos" });
+        }
+
+        await pool.query(
+            `INSERT INTO direcciones (user_id, departamento, ciudad, direccion)
+             VALUES (?, ?, ?, ?)`,
+            [user_id, departamento, ciudad, direccion]
+        );
+
+        res.json({ ok: true, message: "Dirección guardada" });
+
+    } catch (err) {
+        console.error("Error POST /api/direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error interno del servidor" });
+    }
+});
+
 // ----------------------------------------------------------
 app.listen(PORT, () => {
   console.log(`✅ Server escuchando en puerto ${PORT}`);
