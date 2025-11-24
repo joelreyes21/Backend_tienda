@@ -462,32 +462,29 @@ app.get("/api/direcciones/:userId", async (req, res) => {
     }
 });
 
-// Crear nueva dirección
 app.post("/api/direcciones", async (req, res) => {
     try {
-        const { user_id, departamento, ciudad, direccion } = req.body;
+        const { userId, departamento, ciudad, direccion } = req.body;
 
-        if (!user_id || !departamento || !ciudad || !Direccion) {
-            return res.status(400).json({ ok: false, error: "Faltan datos" });
+        if (!userId || !departamento || !ciudad || !direccion) {
+            return res.status(400).json({ ok: false, error: "Datos incompletos" });
         }
 
         await pool.query(
             `INSERT INTO direcciones (user_id, departamento, ciudad, direccion)
              VALUES (?, ?, ?, ?)`,
-            [user_id, departamento, ciudad, direccion]
+            [userId, departamento, ciudad, direccion]
         );
 
         res.json({ ok: true, message: "Dirección guardada" });
 
     } catch (err) {
-        console.error("Error POST /api/direcciones:", err);
-        res.status(500).json({ ok: false, error: "Error interno del servidor" });
+        console.error("Error POST /direcciones:", err);
+        res.status(500).json({ ok: false, error: "Error al guardar dirección" });
     }
 });
 
-// ================================
-//        DIRECCIONES (CRUD)
-// ================================
+
 app.get("/api/direcciones/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
