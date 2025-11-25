@@ -179,7 +179,8 @@ app.post('/api/login', async (req, res) => {
 // GET productos
 app.get('/api/products', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    // 1. Obtener productos
+    const [products] = await pool.query(`
       SELECT 
         id,
         nombre,
@@ -187,7 +188,6 @@ app.get('/api/products', async (req, res) => {
         price,
         stock,
         categoria,
-        tallas,
         codigo,
         CASE
           WHEN imagen IS NOT NULL AND imagen != '' THEN imagen
@@ -197,12 +197,32 @@ app.get('/api/products', async (req, res) => {
       ORDER BY created_at DESC
     `);
 
-    res.json({ ok: true, products: rows });
+    // 2. Obtener tallas desde product_sizes
+    const [sizes] = await pool.query(`
+      SELECT product_id, talla, cantidad
+      FROM product_sizes
+    `);
+
+    // 3. Mapear tallas a cada producto
+    const productosFinal = products.map(p => {
+      const tallasDelProducto = sizes
+        .filter(s => s.product_id === p.id)
+        .map(s => s.talla);
+
+      return {
+        ...p,
+        tallas: tallasDelProducto
+      };
+    });
+
+    res.json({ ok: true, products: productosFinal });
 
   } catch (err) {
-    res.status(500).json({ ok: false, error: 'Error en el servidor' });
+    console.error("Error /api/products:", err);
+    res.status(500).json({ ok: false, error: "Error en el servidor" });
   }
 });
+
 
 // GET producto por ID
 app.get('/api/products/:id', async (req, res) => {
