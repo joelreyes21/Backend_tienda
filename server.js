@@ -436,7 +436,10 @@ app.post("/api/orders", async (req, res) => {
   await conn.beginTransaction();
 
   try {
-    const { userId, items, total } = req.body;
+    const userId = Number(req.body.userId);
+    const items = req.body.items;
+    const total = req.body.total;
+      
 
     if (!userId || !items || !items.length) {
       return res.status(400).json({ ok: false, error: "Carrito vacío o datos incompletos" });
