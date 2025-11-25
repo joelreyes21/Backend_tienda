@@ -431,27 +431,33 @@ app.get("/api/usuarios", async (req, res) => {
 // --------------------- FINALIZAR COMPRA --------------------
 // ----------------------------------------------------------
 
+// ----------------------------------------------------------
+// --------------------- FINALIZAR COMPRA --------------------
+// ----------------------------------------------------------
+
 app.post("/api/orders", async (req, res) => {
   const conn = await pool.getConnection();
   await conn.beginTransaction();
 
   try {
-    const userId = Number(req.body.userId);
+    // YA NO USAMOS userId
     const items = req.body.items;
     const total = req.body.total;
 
-    if (!userId || !items || !items.length) {
-      return res.status(400).json({ ok: false, error: "Carrito vacío o datos incompletos" });
+    if (!items || !items.length) {
+      return res.status(400).json({ ok: false, error: "Carrito vacío" });
     }
 
+    // 1️⃣ Crear la orden SIN user_id
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (user_id, total)
-       VALUES (?, ?)`,
-      [userId, total]
+      `INSERT INTO orders (total)
+       VALUES (?)`,
+      [total]
     );
 
     const orderId = orderResult.insertId;
 
+    // 2️⃣ Procesar productos del carrito
     for (const item of items) {
       const { id: productId, cantidad, talla } = item;
 
@@ -497,6 +503,7 @@ app.post("/api/orders", async (req, res) => {
     conn.release();
   }
 });
+
 
 app.delete("/api/usuarios/:id", async (req, res) => {
   try {
