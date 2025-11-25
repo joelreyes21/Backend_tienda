@@ -482,11 +482,10 @@ app.post("/api/orders", async (req, res) => {
 
       // 2.3 Guardar los items
       await conn.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, talla)
+        `INSERT INTO order_items (order_id, product_id, cantidad, talla)
          VALUES (?, ?, ?, ?)`,
         [orderId, productId, cantidad, talla]
       );
-      
     }
 
     // 3️⃣ Confirmar transacción
