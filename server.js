@@ -568,6 +568,27 @@ app.delete("/api/direcciones/:id", async (req, res) => {
         res.status(500).json({ ok: false, error: "Error al eliminar dirección" });
     }
 });
+// === GUARDAR TALLAS Y CANTIDADES ===
+let cantidadesJSON = req.body.cantidadesJSON;
+
+if (cantidadesJSON) {
+    try {
+        const cantidades = JSON.parse(cantidadesJSON);
+
+        for (const talla in cantidades) {
+            const cantidad = cantidades[talla];
+
+            await pool.query(
+                `INSERT INTO product_sizes (product_id, talla, cantidad)
+                 VALUES (?, ?, ?)`,
+                [newProductId, talla, cantidad]
+            );
+        }
+
+    } catch (error) {
+        console.error("Error guardando tallas:", error);
+    }
+}
 
 
 
