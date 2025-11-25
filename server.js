@@ -427,6 +427,82 @@ app.get("/api/usuarios", async (req, res) => {
   }
 });
 
+// ----------------------------------------------------------
+// --------------------- FINALIZAR COMPRA --------------------
+// ----------------------------------------------------------
+
+app.post("/api/orders", async (req, res) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+
+  try {
+    const { userId, items, total } = req.body;
+
+    if (!userId || !items || !items.length) {
+      return res.status(400).json({ ok: false, error: "Carrito vacío o datos incompletos" });
+    }
+
+    // 1️⃣ Crear la orden
+    const [orderResult] = await conn.query(
+      `INSERT INTO orders (user_id, total) VALUES (?, ?)`,
+      [userId, total]
+    );
+
+    const orderId = orderResult.insertId;
+
+    // 2️⃣ Procesar cada producto del carrito
+    for (const item of items) {
+      const { id: productId, cantidad, talla } = item;
+
+      if (!talla) {
+        throw new Error("Falta seleccionar talla en un producto");
+      }
+
+      // 2.1 Verificar stock disponible
+      const [stockRows] = await conn.query(
+        `SELECT cantidad FROM product_sizes WHERE product_id = ? AND talla = ?`,
+        [productId, talla]
+      );
+
+      if (stockRows.length === 0) {
+        throw new Error(`No existe la talla ${talla} para el producto ${productId}`);
+      }
+
+      const stockActual = stockRows[0].cantidad;
+
+      if (stockActual < cantidad) {
+        throw new Error(`Stock insuficiente para talla ${talla} del producto ${productId}`);
+      }
+
+      // 2.2 Restar stock
+      await conn.query(
+        `UPDATE product_sizes SET cantidad = cantidad - ? WHERE product_id = ? AND talla = ?`,
+        [cantidad, productId, talla]
+      );
+
+      // 2.3 Guardar los items
+      await conn.query(
+        `INSERT INTO order_items (order_id, product_id, cantidad, talla)
+         VALUES (?, ?, ?, ?)`,
+        [orderId, productId, cantidad, talla]
+      );
+    }
+
+    // 3️⃣ Confirmar transacción
+    await conn.commit();
+
+    res.json({ ok: true, message: "Orden creada con éxito", orderId });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error("❌ Error en /api/orders:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+
 
 
 app.delete("/api/usuarios/:id", async (req, res) => {
