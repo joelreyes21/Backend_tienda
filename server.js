@@ -442,57 +442,69 @@ app.post("/api/orders", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Carrito vacío o datos incompletos" });
     }
 
-    // 1️⃣ Crear la orden
+    // 🔥 Obtener datos del usuario
+    const [userRows] = await conn.query(
+      `SELECT nombre, apellido, email FROM users WHERE id = ?`,
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    const user = userRows[0];
+    const userNombre = `${user.nombre} ${user.apellido || ""}`.trim();
+    const userEmail = user.email;
+
+    // 1️⃣ Crear la orden con nombre y email
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (user_id, total) VALUES (?, ?)`,
-      [userId, total]
+      `INSERT INTO orders (user_id, user_nombre, user_email, total)
+       VALUES (?, ?, ?, ?)`,
+      [userId, userNombre, userEmail, total]
     );
 
     const orderId = orderResult.insertId;
 
-    // 2️⃣ Procesar cada producto del carrito
+    // 2️⃣ Procesar los productos del carrito
     for (const item of items) {
       const { id: productId, cantidad, talla } = item;
 
-      if (!talla) {
-        throw new Error("Falta seleccionar talla en un producto");
-      }
+      if (!talla) throw new Error("Falta seleccionar talla en un producto");
 
-      // 2.1 Verificar stock disponible
+      // Verificar stock
       const [stockRows] = await conn.query(
         `SELECT cantidad FROM product_sizes WHERE product_id = ? AND talla = ?`,
         [productId, talla]
       );
 
-      if (stockRows.length === 0) {
+      if (stockRows.length === 0)
         throw new Error(`No existe la talla ${talla} para el producto ${productId}`);
-      }
 
-      const stockActual = stockRows[0].cantidad;
-
-      if (stockActual < cantidad) {
+      if (stockRows[0].cantidad < cantidad)
         throw new Error(`Stock insuficiente para talla ${talla} del producto ${productId}`);
-      }
 
-      // 2.2 Restar stock
+      // Restar stock
       await conn.query(
-        `UPDATE product_sizes SET cantidad = cantidad - ? WHERE product_id = ? AND talla = ?`,
+        `UPDATE product_sizes SET cantidad = cantidad - ?
+         WHERE product_id = ? AND talla = ?`,
         [cantidad, productId, talla]
       );
 
-      // 2.3 Guardar los items
+      // Guardar item
       await conn.query(
-        `INSERT INTO order_items (order_id, user_id, product_id, cantidad, talla)
-        VALUES (?, ?, ?, ?, ?)`,
-        [orderId, userId, productId, cantidad, talla]
+        `INSERT INTO order_items (order_id, product_id, cantidad, talla)
+         VALUES (?, ?, ?, ?)`,
+        [orderId, productId, cantidad, talla]
       );
-
     }
 
-    // 3️⃣ Confirmar transacción
     await conn.commit();
 
-    res.json({ ok: true, message: "Orden creada con éxito", orderId });
+    res.json({
+      ok: true,
+      message: "Orden creada con éxito",
+      orderId
+    });
 
   } catch (err) {
     await conn.rollback();
@@ -502,6 +514,7 @@ app.post("/api/orders", async (req, res) => {
     conn.release();
   }
 });
+
 
 
 
