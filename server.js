@@ -172,11 +172,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ----------------------------------------------------------
-// ------------------------ PRODUCTS ------------------------
-// ----------------------------------------------------------
-
-// GET productos
+// GET productoss
 app.get('/api/products', async (req, res) => {
   try {
     // 1. Obtener productos
