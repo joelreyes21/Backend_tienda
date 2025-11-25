@@ -442,25 +442,11 @@ app.post("/api/orders", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Carrito vacío o datos incompletos" });
     }
 
-    // 🔥 Obtener datos del usuario
-    const [userRows] = await conn.query(
-      `SELECT nombre, apellido, email FROM users WHERE id = ?`,
-      [userId]
-    );
-
-    if (userRows.length === 0) {
-      throw new Error("Usuario no encontrado");
-    }
-
-    const user = userRows[0];
-    const userNombre = `${user.nombre} ${user.apellido || ""}`.trim();
-    const userEmail = user.email;
-
-    // 1️⃣ Crear la orden con nombre y email
+    // 1️⃣ Crear la orden
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (user_id, user_nombre, user_email, total)
-       VALUES (?, ?, ?, ?)`,
-      [userId, userNombre, userEmail, total]
+      `INSERT INTO orders (user_id, total)
+       VALUES (?, ?)`,
+      [userId, total]
     );
 
     const orderId = orderResult.insertId;
@@ -514,6 +500,7 @@ app.post("/api/orders", async (req, res) => {
     conn.release();
   }
 });
+
 
 
 
