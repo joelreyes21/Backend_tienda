@@ -224,6 +224,9 @@ app.get('/api/products/:id', async (req, res) => {
 
 // POST crear producto
 app.post('/api/products', upload.single('imagen'), async (req, res) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+
   try {
     const {
       nombre,
@@ -233,7 +236,8 @@ app.post('/api/products', upload.single('imagen'), async (req, res) => {
       precio,
       costo,
       stock,
-      descripcion
+      descripcion,
+      cantidadesJSON
     } = req.body;
 
     if (!nombre || !precio) {
@@ -245,7 +249,10 @@ app.post('/api/products', upload.single('imagen'), async (req, res) => {
 
     const imagenFinal = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const [result] = await pool.query(
+    // ------------------------
+    // INSERTAR PRODUCTO
+    // ------------------------
+    const [result] = await conn.query(
       `INSERT INTO products
       (nombre, codigo, categoria, tallas, price, costo, stock, descripcion, imagen)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -262,9 +269,34 @@ app.post('/api/products', upload.single('imagen'), async (req, res) => {
       ]
     );
 
-    const [rows] = await pool.query(
+    const newProductId = result.insertId;
+
+    // ------------------------
+    // INSERTAR TALLAS EN product_sizes
+    // ------------------------
+    if (cantidadesJSON) {
+      try {
+        const cantidades = JSON.parse(cantidadesJSON);
+
+        for (const talla in cantidades) {
+          const cantidad = cantidades[talla];
+
+          await conn.query(
+            `INSERT INTO product_sizes (product_id, talla, cantidad)
+             VALUES (?, ?, ?)`,
+            [newProductId, talla, cantidad]
+          );
+        }
+      } catch (err) {
+        console.error("❌ Error guardando tallas:", err);
+      }
+    }
+
+    await conn.commit();
+
+    const [rows] = await conn.query(
       `SELECT * FROM products WHERE id = ?`,
-      [result.insertId]
+      [newProductId]
     );
 
     res.status(201).json({
@@ -273,9 +305,14 @@ app.post('/api/products', upload.single('imagen'), async (req, res) => {
     });
 
   } catch (err) {
+    await conn.rollback();
+    console.error("❌ Error POST /api/products:", err);
     res.status(500).json({ ok: false, error: 'Error en el servidor' });
+  } finally {
+    conn.release();
   }
 });
+
 
 // PUT actualizar producto
 app.put('/api/products/:id', upload.single("imagen"), async (req, res) => {
@@ -568,29 +605,6 @@ app.delete("/api/direcciones/:id", async (req, res) => {
         res.status(500).json({ ok: false, error: "Error al eliminar dirección" });
     }
 });
-// === GUARDAR TALLAS Y CANTIDADES ===
-let cantidadesJSON = req.body.cantidadesJSON;
-
-if (cantidadesJSON) {
-    try {
-        const cantidades = JSON.parse(cantidadesJSON);
-
-        for (const talla in cantidades) {
-            const cantidad = cantidades[talla];
-
-            await pool.query(
-                `INSERT INTO product_sizes (product_id, talla, cantidad)
-                 VALUES (?, ?, ?)`,
-                [newProductId, talla, cantidad]
-            );
-        }
-
-    } catch (error) {
-        console.error("Error guardando tallas:", error);
-    }
-}
-
-
 
 
 
