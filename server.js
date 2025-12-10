@@ -434,19 +434,18 @@ app.post("/api/orders", async (req, res) => {
   await conn.beginTransaction();
 
   try {
-    // YA NO USAMOS userId
-    const items = req.body.items;
-    const total = req.body.total;
+    // 🔥 Recibir items, total y user_id desde el frontend
+    const { items, total, user_id } = req.body;
 
     if (!items || !items.length) {
       return res.status(400).json({ ok: false, error: "Carrito vacío" });
     }
 
-    // 1️⃣ Crear la orden SIN user_id
+    // 1️⃣ Crear la orden CON user_id
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (total)
-       VALUES (?)`,
-      [total]
+      `INSERT INTO orders (total, user_id)
+       VALUES (?, ?)`,
+      [total, user_id]
     );
 
     const orderId = orderResult.insertId;
@@ -497,6 +496,7 @@ app.post("/api/orders", async (req, res) => {
     conn.release();
   }
 });
+
 
 
 app.delete("/api/usuarios/:id", async (req, res) => {
