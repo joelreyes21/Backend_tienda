@@ -699,19 +699,38 @@ app.delete("/api/direcciones/:id", async (req, res) => {
 // --------------------- ENDPOINTS PEDIDOS ADMIN ---------------------
 
 // 1️⃣ Listar todos los pedidos
+// GET todos los pedidos con cliente y productos
 app.get("/api/orders", async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT o.id, o.total, o.created_at, o.factura, o.estado
+    // Traer pedidos con info del cliente
+    const [orders] = await pool.query(`
+      SELECT o.id, o.total, o.created_at, o.factura, o.estado, u.nombre AS cliente, u.email AS cliente_email
       FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
       ORDER BY o.created_at DESC
     `);
-    res.json(rows);
+
+    // Traer productos de cada pedido
+    for (let order of orders) {
+      const [items] = await pool.query(`
+        SELECT oi.cantidad, oi.precio, oi.talla, p.nombre AS producto
+        FROM order_items oi
+        JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ?
+      `, [order.id]);
+
+      order.items = items; // agregar array de productos al pedido
+      order.notas = "Para llevar"; // aquí puedes traer notas si lo guardas en DB
+    }
+
+    res.json(orders);
+
   } catch (err) {
     console.error("Error GET /api/orders", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
 
 // 2️⃣ Detalle de un pedido
 app.get("/api/orders/:id", async (req, res) => {
