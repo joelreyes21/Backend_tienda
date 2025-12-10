@@ -385,7 +385,6 @@ app.put('/api/products/:id', upload.single("imagen"), async (req, res) => {
 });
 
 
-// DELETE producto
 app.delete('/api/products/:id', async (req, res) => {
   try {
     await pool.query(
@@ -399,7 +398,7 @@ app.delete('/api/products/:id', async (req, res) => {
     res.status(500).json({ ok: false, error: "Error en el servidor" });
   }
 });
-// ---------- LISTAR USUARIOS (ADMIN) ----------
+
 app.get("/api/usuarios", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -420,14 +419,6 @@ app.get("/api/usuarios", async (req, res) => {
     res.status(500).json({ error: "Error cargando usuarios" });
   }
 });
-
-// ----------------------------------------------------------
-// --------------------- FINALIZAR COMPRA --------------------
-// ----------------------------------------------------------
-
-// ----------------------------------------------------------
-// --------------------- FINALIZAR COMPRA --------------------
-// ----------------------------------------------------------
 
 app.post("/api/orders", async (req, res) => {
   const conn = await pool.getConnection();
@@ -473,11 +464,19 @@ app.post("/api/orders", async (req, res) => {
         [cantidad, productId, talla]
       );
 
-      await conn.query(
-        `INSERT INTO order_items (order_id, product_id, cantidad, talla)
-         VALUES (?, ?, ?, ?)`,
-        [orderId, productId, cantidad, talla]
+      // Obtener precio real del producto
+      const [[productRow]] = await conn.query(
+        `SELECT price FROM products WHERE id = ?`,
+        [productId]
       );
+      
+      // Insertar item con precio incluido
+      await conn.query(
+        `INSERT INTO order_items (order_id, product_id, cantidad, talla, precio)
+         VALUES (?, ?, ?, ?, ?)`,
+        [orderId, productId, cantidad, talla, productRow.price]
+      );
+      
     }
 
     await conn.commit();
@@ -735,20 +734,28 @@ app.get("/api/orders", async (req, res) => {
 // 2️⃣ Detalle de un pedido
 app.get("/api/orders/:id", async (req, res) => {
   const orderId = req.params.id;
+
   try {
     const [items] = await pool.query(`
-      SELECT oi.cantidad, oi.precio, p.nombre, ps.talla
+      SELECT 
+        oi.cantidad,
+        oi.talla,
+        oi.precio,
+        p.nombre AS producto
       FROM order_items oi
       JOIN products p ON p.id = oi.product_id
-      LEFT JOIN product_sizes ps ON ps.product_id = oi.product_id AND ps.talla = oi.talla
       WHERE oi.order_id = ?
     `, [orderId]);
-    res.json({ items });
+
+    res.json({ ok: true, items });
+
   } catch (err) {
     console.error("Error GET /api/orders/:id", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+
 
 // 3️⃣ Cambiar estado de un pedido
 app.put("/api/orders/:id", async (req, res) => {
@@ -763,12 +770,7 @@ app.put("/api/orders/:id", async (req, res) => {
   }
 });
 
-// --------------------- FIN ENDPOINTS PEDIDOS ADMIN ---------------------
 
-
-
-
-// ----------------------------------------------------------
 app.listen(PORT, () => {
   console.log(`✅ Server escuchando en puerto ${PORT}`);
 });
