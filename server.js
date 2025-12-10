@@ -722,7 +722,7 @@ app.get("/api/orders", async (req, res) => {
       order.notas = "Para llevar"; // aquí puedes traer notas si lo guardas en DB
     }
 
-    res.json(orders);
+    res.json({ ok: true, orders });
 
   } catch (err) {
     console.error("Error GET /api/orders", err);
