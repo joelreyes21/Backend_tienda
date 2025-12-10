@@ -172,10 +172,8 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// GET productoss
 app.get('/api/products', async (req, res) => {
   try {
-    // 1. Obtener productos
     const [products] = await pool.query(`
       SELECT 
         id,
@@ -697,6 +695,57 @@ app.delete("/api/direcciones/:id", async (req, res) => {
         res.status(500).json({ ok: false, error: "Error al eliminar dirección" });
     }
 });
+
+// --------------------- ENDPOINTS PEDIDOS ADMIN ---------------------
+
+// 1️⃣ Listar todos los pedidos
+app.get("/api/orders", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT o.id, o.total, o.created_at, o.factura, o.estado
+      FROM orders o
+      ORDER BY o.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error("Error GET /api/orders", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 2️⃣ Detalle de un pedido
+app.get("/api/orders/:id", async (req, res) => {
+  const orderId = req.params.id;
+  try {
+    const [items] = await pool.query(`
+      SELECT oi.cantidad, oi.precio, p.nombre, ps.talla
+      FROM order_items oi
+      JOIN products p ON p.id = oi.product_id
+      LEFT JOIN product_sizes ps ON ps.product_id = oi.product_id AND ps.talla = oi.talla
+      WHERE oi.order_id = ?
+    `, [orderId]);
+    res.json({ items });
+  } catch (err) {
+    console.error("Error GET /api/orders/:id", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 3️⃣ Cambiar estado de un pedido
+app.put("/api/orders/:id", async (req, res) => {
+  const orderId = req.params.id;
+  const { estado } = req.body;
+  try {
+    await pool.query(`UPDATE orders SET estado = ? WHERE id = ?`, [estado, orderId]);
+    res.json({ ok: true, message: "Estado actualizado" });
+  } catch (err) {
+    console.error("Error PUT /api/orders/:id", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// --------------------- FIN ENDPOINTS PEDIDOS ADMIN ---------------------
+
 
 
 
