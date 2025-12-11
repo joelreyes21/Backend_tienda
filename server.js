@@ -426,7 +426,8 @@ app.post("/api/orders", async (req, res) => {
 
   try {
     // 🔥 Recibir items, total y user_id desde el frontend
-    const { items, total, user_id } = req.body;
+    const { items, total, user_id, factura } = req.body;
+
 
     if (!items || !items.length) {
       return res.status(400).json({ ok: false, error: "Carrito vacío" });
@@ -434,10 +435,12 @@ app.post("/api/orders", async (req, res) => {
 
     // 1️⃣ Crear la orden CON user_id
     const [orderResult] = await conn.query(
-      `INSERT INTO orders (total, user_id)
-       VALUES (?, ?)`,
-      [total, user_id]
+      `INSERT INTO orders (total, user_id, factura)
+       VALUES (?, ?, ?)`,
+      [total, user_id, factura || "no"]
     );
+
+    
 
     const orderId = orderResult.insertId;
 
@@ -496,6 +499,60 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
+// --------------------- FACTURA PDF ---------------------
+
+const PDFDocument = require("pdfkit");
+
+app.get("/api/orders/:id/factura", async (req, res) => {
+  const orderId = req.params.id;
+
+  try {
+    const [rows] = await pool.query(`
+      SELECT o.id, o.total, o.factura, u.nombre, u.email 
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      WHERE o.id = ?
+    `, [orderId]);
+
+    if (rows.length === 0)
+      return res.status(404).json({ ok: false, error: "Pedido no encontrado" });
+
+    const pedido = rows[0];
+
+    const [items] = await pool.query(`
+      SELECT p.nombre, oi.cantidad, oi.talla, oi.precio
+      FROM order_items oi
+      JOIN products p ON p.id = oi.product_id
+      WHERE oi.order_id = ?
+    `, [orderId]);
+
+    const doc = new PDFDocument();
+    res.setHeader("Content-Type", "application/pdf");
+
+    doc.fontSize(22).text("Factura K&L Legacy", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(14).text(`Pedido: #${orderId}`);
+    doc.text(`Cliente: ${pedido.nombre}`);
+    doc.text(`Email: ${pedido.email}`);
+    doc.text(`Factura solicitada: ${pedido.factura}`);
+    doc.moveDown();
+
+    doc.fontSize(16).text("Productos:");
+    items.forEach(i => {
+      doc.text(`- ${i.nombre} (Talla ${i.talla}) x${i.cantidad} — $${i.precio}`);
+    });
+
+    doc.moveDown();
+    doc.fontSize(18).text(`Total: $${pedido.total}`, { align: "right" });
+
+    doc.end();
+    doc.pipe(res);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: "Error generando factura" });
+  }
+});
 
 
 app.delete("/api/usuarios/:id", async (req, res) => {
