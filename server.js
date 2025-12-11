@@ -752,6 +752,27 @@ app.delete("/api/direcciones/:id", async (req, res) => {
     }
 });
 
+// 🔥 HISTORIAL POR USUARIO
+app.get("/api/orders/user/:userId", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const [orders] = await pool.query(`
+      SELECT id, total, created_at, factura, estado
+      FROM orders
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    res.json({ ok: true, orders });
+
+  } catch (err) {
+    console.error("Error GET /api/orders/user/:userId", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+
 // --------------------- ENDPOINTS PEDIDOS ADMIN ---------------------
 
 // 1️⃣ Listar todos los pedidos
