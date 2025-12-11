@@ -508,7 +508,8 @@ app.get("/api/orders/:id/factura", async (req, res) => {
 
   try {
     const [rows] = await pool.query(`
-      SELECT o.id, o.total, o.factura, u.nombre, u.email 
+      SELECT o.id, o.total, o.factura, o.created_at,
+             u.nombre, u.email 
       FROM orders o
       JOIN users u ON u.id = o.user_id
       WHERE o.id = ?
@@ -526,33 +527,91 @@ app.get("/api/orders/:id/factura", async (req, res) => {
       WHERE oi.order_id = ?
     `, [orderId]);
 
-    const doc = new PDFDocument();
+    const doc = new PDFDocument({ margin: 50 });
+
     res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename=factura_${orderId}.pdf`);
 
-    doc.fontSize(22).text("Factura K&L Legacy", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(14).text(`Pedido: #${orderId}`);
-    doc.text(`Cliente: ${pedido.nombre}`);
-    doc.text(`Email: ${pedido.email}`);
-    doc.text(`Factura solicitada: ${pedido.factura}`);
-    doc.moveDown();
+    doc.pipe(res);
 
-    doc.fontSize(16).text("Productos:");
+    // ---------- ENCABEZADO ----------
+    doc
+      .fontSize(28)
+      .font("Helvetica-Bold")
+      .text("K&L LEGACY", { align: "center" })
+      .moveDown(0.5);
+
+    doc
+      .fontSize(12)
+      .font("Helvetica")
+      .text("Tienda Oficial - Moda & Exclusividad", { align: "center" })
+      .moveDown(1);
+
+    doc
+      .moveTo(50, doc.y)
+      .lineTo(550, doc.y)
+      .stroke()
+      .moveDown(1);
+
+    // ---------- DATOS DEL CLIENTE ----------
+    doc.fontSize(14).font("Helvetica-Bold").text("Factura", { underline: true }).moveDown(0.5);
+
+    doc.font("Helvetica").fontSize(12)
+      .text(`Pedido: #${orderId}`)
+      .text(`Fecha: ${new Date(pedido.created_at).toLocaleDateString()}`)
+      .text(`Cliente: ${pedido.nombre}`)
+      .text(`Email: ${pedido.email}`)
+      .text(`Factura solicitada: ${pedido.factura}`)
+      .moveDown(1);
+
+    // ---------- TABLA DE PRODUCTOS ----------
+    doc.fontSize(14).font("Helvetica-Bold").text("Detalle de productos").moveDown(0.5);
+
+    // Encabezado tabla
+    doc.fontSize(12).font("Helvetica-Bold");
+    doc.text("Producto", 50, doc.y);
+    doc.text("Talla", 260, doc.y);
+    doc.text("Cant.", 330, doc.y);
+    doc.text("Precio", 400, doc.y);
+    doc.text("Total", 480, doc.y);
+    doc.moveDown(0.5);
+
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke().moveDown(0.5);
+
+    doc.font("Helvetica");
+
     items.forEach(i => {
-      doc.text(`- ${i.nombre} (Talla ${i.talla}) x${i.cantidad} — $${i.precio}`);
+      const totalLinea = (i.precio * i.cantidad).toFixed(2);
+
+      doc.text(i.nombre, 50, doc.y);
+      doc.text(i.talla, 260, doc.y);
+      doc.text(i.cantidad, 330, doc.y);
+      doc.text(`$${i.precio}`, 400, doc.y);
+      doc.text(`$${totalLinea}`, 480, doc.y);
+      doc.moveDown(0.3);
     });
 
-    doc.moveDown();
-    doc.fontSize(18).text(`Total: $${pedido.total}`, { align: "right" });
+    doc.moveDown(1);
+
+    // ---------- TOTAL ----------
+    doc.fontSize(16).font("Helvetica-Bold");
+    doc.text(`TOTAL A PAGAR: $${pedido.total}`, { align: "right" });
+
+    doc.moveDown(2);
+
+    // ---------- FOOTER ----------
+    doc.fontSize(12).font("Helvetica-Oblique");
+    doc.text("Gracias por comprar en K&L Legacy 💛", { align: "center" });
+    doc.text("Esperamos que vuelvas pronto.", { align: "center" });
 
     doc.end();
-    doc.pipe(res);
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "Error generando factura" });
   }
 });
+
 
 
 app.delete("/api/usuarios/:id", async (req, res) => {
