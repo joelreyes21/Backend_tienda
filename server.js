@@ -174,13 +174,13 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/products', async (req, res) => {
   try {
+    // 1️⃣ Obtener los productos principales
     const [products] = await pool.query(`
       SELECT 
         id,
         nombre,
         descripcion,
         price,
-        stock,
         categoria,
         codigo,
         CASE
@@ -191,21 +191,23 @@ app.get('/api/products', async (req, res) => {
       ORDER BY created_at DESC
     `);
 
-    // 2. Obtener tallas desde product_sizes
+    // 2️⃣ Obtener tallas y cantidades del stock real
     const [sizes] = await pool.query(`
       SELECT product_id, talla, cantidad
       FROM product_sizes
     `);
 
-    // 3. Mapear tallas a cada producto
+    // 3️⃣ Combinar tallas + stock total por producto
     const productosFinal = products.map(p => {
-      const tallasDelProducto = sizes
-        .filter(s => s.product_id === p.id)
-        .map(s => s.talla);
+      const tallasDelProducto = sizes.filter(s => s.product_id === p.id);
+
+      const tallas = tallasDelProducto.map(t => t.talla);
+      const stock_total = tallasDelProducto.reduce((sum, t) => sum + t.cantidad, 0);
 
       return {
         ...p,
-        tallas: tallasDelProducto
+        tallas,
+        stock: stock_total  // 👈 ESTE ES EL STOCK REAL QUE VERÁ EL INVENTARIO
       };
     });
 
@@ -216,6 +218,7 @@ app.get('/api/products', async (req, res) => {
     res.status(500).json({ ok: false, error: "Error en el servidor" });
   }
 });
+
 
 
 // GET producto por ID
@@ -599,7 +602,6 @@ app.get("/api/orders/:id/factura", async (req, res) => {
 
     doc.moveDown(2);
 
-    // ---------- FOOTER ----------
     doc.fontSize(12).font("Helvetica-Oblique");
     doc.text("Gracias por comprar en K&L Legacy 💛", { align: "center" });
     doc.text("Esperamos que vuelvas pronto.", { align: "center" });
